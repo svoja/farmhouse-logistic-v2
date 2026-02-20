@@ -396,14 +396,16 @@ function updateMapMarkers() {
     carStopsPerCar.push(stops);
     const numSegments = Math.max(0, stops.length - 1);
     carSegmentIndex.push(activeSegment);
-    carProgress.push(0);
+    const totalCars = routeCars.length;
+    // Stagger start progress so cars are spread along the route (different "start time")
+    const startProgress = (ci / Math.max(1, totalCars)) * 0.92;
+    carProgress.push(startProgress);
     carLabels.push(car.license_plate || "");
     carShouldAnimate.push(hasInTransit);
     carActiveSegment.push(activeSegment);
 
-    // Spread each car around the same point in a circle (2*pi * index) so they don't overlap
-    const totalCars = routeCars.length;
-    const radiusDeg = 0.00045;
+    // Small circular offset so cars at same spot don't overlap
+    const radiusDeg = 0.0002;
     const angle = (2 * Math.PI * ci) / Math.max(1, totalCars);
     const latOff = radiusDeg * Math.cos(angle);
     const lngOff = radiusDeg * Math.sin(angle);
@@ -419,7 +421,7 @@ function updateMapMarkers() {
         from.lng + t * (to.lng - from.lng),
       ];
     };
-    let initialPos = getPos(activeSegment, 0);
+    let initialPos = getPos(activeSegment, startProgress);
     initialPos = [initialPos[0] + latOff, initialPos[1] + lngOff];
     const driverName = (ordersForStops[0] && ordersForStops[0].driver_name) ? ordersForStops[0].driver_name : "";
     const firstName = (driverName.trim().split(/\s+/)[0] || "").trim() || "—";
@@ -463,12 +465,14 @@ function updateMapMarkers() {
         const seg = carSegmentIndex[r.ci];
         if (pathBounds && seg >= 0 && seg < pathBounds.length - 1 && carMarkers[r.ci]) {
           const startIdx = pathBounds[seg];
-          const p = r.path[startIdx];
-          if (p) {
-            let pos = typeof p.lat === "function" ? { lat: p.lat(), lng: p.lng() } : p;
+          const endIdx = pathBounds[seg + 1];
+          const prog = carProgress[r.ci] != null ? carProgress[r.ci] : 0;
+          const pos = getPositionOnPath(r.path, startIdx, endIdx, prog);
+          if (pos) {
+            let finalPos = pos;
             const off = carOffsets[r.ci];
-            if (off) pos = { lat: pos.lat + off[0], lng: pos.lng + off[1] };
-            carMarkers[r.ci].setPosition(pos);
+            if (off) finalPos = { lat: pos.lat + off[0], lng: pos.lng + off[1] };
+            carMarkers[r.ci].setPosition(finalPos);
           }
         }
       }
