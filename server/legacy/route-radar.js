@@ -263,8 +263,12 @@ function runRadarCarStep() {
     if (path && bounds && seg >= 0 && seg < bounds.length - 1) {
       const startIdx = bounds[seg];
       const endIdx = bounds[seg + 1];
-      const pos = getPositionOnPath(path, startIdx, endIdx, carProgress[i]);
-      if (pos) carMarkers[i].setPosition(pos);
+      let pos = getPositionOnPath(path, startIdx, endIdx, carProgress[i]);
+      if (pos) {
+        const off = carOffsets[i];
+        if (off) pos = { lat: pos.lat + off[0], lng: pos.lng + off[1] };
+        carMarkers[i].setPosition(pos);
+      }
     } else {
       const pos = interpolateSegment(stops, seg, carProgress[i]);
       const off = carOffsets[i];
@@ -397,9 +401,12 @@ function updateMapMarkers() {
     carShouldAnimate.push(hasInTransit);
     carActiveSegment.push(activeSegment);
 
-    const OFFSET_DEG = 0.00025;
-    const latOff = (ci % 3) * OFFSET_DEG * (ci % 2 === 0 ? 1 : -1);
-    const lngOff = (Math.floor(ci / 3) % 3) * OFFSET_DEG * (Math.floor(ci / 3) % 2 === 0 ? 1 : -1);
+    // Spread each car around the same point in a circle (2*pi * index) so they don't overlap
+    const totalCars = routeCars.length;
+    const radiusDeg = 0.00045;
+    const angle = (2 * Math.PI * ci) / Math.max(1, totalCars);
+    const latOff = radiusDeg * Math.cos(angle);
+    const lngOff = radiusDeg * Math.sin(angle);
     carOffsets.push([latOff, lngOff]);
 
     const getPos = (segIdx, prog) => {
@@ -457,10 +464,12 @@ function updateMapMarkers() {
         if (pathBounds && seg >= 0 && seg < pathBounds.length - 1 && carMarkers[r.ci]) {
           const startIdx = pathBounds[seg];
           const p = r.path[startIdx];
-          if (p)
-            carMarkers[r.ci].setPosition(
-              typeof p.lat === "function" ? { lat: p.lat(), lng: p.lng() } : p
-            );
+          if (p) {
+            let pos = typeof p.lat === "function" ? { lat: p.lat(), lng: p.lng() } : p;
+            const off = carOffsets[r.ci];
+            if (off) pos = { lat: pos.lat + off[0], lng: pos.lng + off[1] };
+            carMarkers[r.ci].setPosition(pos);
+          }
         }
       }
     });
@@ -605,8 +614,13 @@ function refresh() {
       updateMapMarkers();
       renderInfoPanel();
     })
-    .catch(() => {
-      if (radarInfoContent) radarInfoContent.innerHTML = "<p class=\"text-red-500\">Failed to load data.</p>";
+    .catch((err) => {
+      if (radarInfoContent) {
+        radarInfoContent.innerHTML =
+          "<p class=\"text-red-500 font-medium\">Failed to load data.</p>" +
+          "<p class=\"text-slate-600 text-sm mt-2\">Is the API server running? In a separate terminal run: <code class=\"bg-slate-100 px-1 rounded\">npm run server</code> (port 3001).</p>" +
+          "<p class=\"text-slate-500 text-xs mt-1\">" + escapeHtml(err && err.message ? err.message : "Network or server error") + "</p>";
+      }
     });
 }
 
