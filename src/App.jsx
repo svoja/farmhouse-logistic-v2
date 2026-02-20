@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import Navbar from './components/Navbar'
 import ChatPage from './pages/ChatPage'
 import OrdersPage from './pages/OrdersPage'
@@ -16,7 +16,8 @@ function App() {
         <Navbar />
         <main className="flex-1 flex flex-col min-h-0">
           <Routes>
-            <Route path="/" element={<LandingPage />} />
+            <Route path="/" element={<Navigate to="/orders" replace />} />
+            <Route path="/landing" element={<LandingPage />} />
             <Route path="/chat" element={<ChatPage />} />
             <Route path="/orders" element={<OrdersPage />} />
             <Route path="/create-order" element={<CreateOrderPage />} />

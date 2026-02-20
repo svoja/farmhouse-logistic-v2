@@ -1248,25 +1248,49 @@ app.get('/api/v2/branch-categories', async (_req, res) => {
   }
 });
 
+// SQL for v2 orders list: with sales (when shipments.sales_emp_id exists) or without
+const V2_ORDERS_SQL = `
+  SELECT o.order_id, o.order_code, o.order_date, o.status,
+    o.customer_branch_id,
+    b.name AS branch_name,
+    s.shipment_id, s.shipment_code,
+    r.name AS route_name,
+    CONCAT(ed.firstname, ' ', ed.lastname) AS driver_name,
+    CONCAT(es.firstname, ' ', es.lastname) AS sales_name
+  FROM orders o
+  JOIN branch b ON o.customer_branch_id = b.branch_id
+  LEFT JOIN shipments s ON o.shipment_id = s.shipment_id
+  LEFT JOIN routes r ON s.route_id = r.route_id
+  LEFT JOIN employees ed ON s.driver_emp_id = ed.emp_id
+  LEFT JOIN employees es ON s.sales_emp_id = es.emp_id
+  ORDER BY o.order_date DESC, o.order_id DESC`;
+const V2_ORDERS_SQL_NO_SALES = `
+  SELECT o.order_id, o.order_code, o.order_date, o.status,
+    o.customer_branch_id,
+    b.name AS branch_name,
+    s.shipment_id, s.shipment_code,
+    r.name AS route_name,
+    CONCAT(ed.firstname, ' ', ed.lastname) AS driver_name,
+    NULL AS sales_name
+  FROM orders o
+  JOIN branch b ON o.customer_branch_id = b.branch_id
+  LEFT JOIN shipments s ON o.shipment_id = s.shipment_id
+  LEFT JOIN routes r ON s.route_id = r.route_id
+  LEFT JOIN employees ed ON s.driver_emp_id = ed.emp_id
+  ORDER BY o.order_date DESC, o.order_id DESC`;
+
 // GET /api/v2/orders - List orders created from shipment plans
 app.get('/api/v2/orders', async (_req, res) => {
   try {
     const conn = await getV2Conn();
-    const [rows] = await conn.execute(
-      `SELECT o.order_id, o.order_code, o.order_date, o.status,
-        o.customer_branch_id,
-        b.name AS branch_name,
-        s.shipment_id, s.shipment_code,
-        r.name AS route_name,
-        CONCAT(ed.firstname, ' ', ed.lastname) AS driver_name,
-        NULL AS sales_name
-       FROM orders o
-       JOIN branch b ON o.customer_branch_id = b.branch_id
-       LEFT JOIN shipments s ON o.shipment_id = s.shipment_id
-       LEFT JOIN routes r ON s.route_id = r.route_id
-       LEFT JOIN employees ed ON s.driver_emp_id = ed.emp_id
-       ORDER BY o.order_date DESC, o.order_id DESC`
-    );
+    let rows;
+    try {
+      [rows] = await conn.execute(V2_ORDERS_SQL);
+    } catch (e) {
+      if (e.message && e.message.includes('sales_emp_id')) {
+        [rows] = await conn.execute(V2_ORDERS_SQL_NO_SALES);
+      } else throw e;
+    }
     await conn.release();
     res.json((rows || []).map((r) => ({
       order_id: r.order_id,
@@ -1287,28 +1311,50 @@ app.get('/api/v2/orders', async (_req, res) => {
   }
 });
 
+const V2_ORDER_BY_ID_SQL = `
+  SELECT o.order_id, o.order_code, o.order_date, o.status,
+    o.customer_branch_id,
+    b.name AS branch_name,
+    s.shipment_id, s.shipment_code,
+    r.name AS route_name,
+    CONCAT(ed.firstname, ' ', ed.lastname) AS driver_name,
+    CONCAT(es.firstname, ' ', es.lastname) AS sales_name
+  FROM orders o
+  JOIN branch b ON o.customer_branch_id = b.branch_id
+  LEFT JOIN shipments s ON o.shipment_id = s.shipment_id
+  LEFT JOIN routes r ON s.route_id = r.route_id
+  LEFT JOIN employees ed ON s.driver_emp_id = ed.emp_id
+  LEFT JOIN employees es ON s.sales_emp_id = es.emp_id
+  WHERE o.order_id = ?`;
+const V2_ORDER_BY_ID_SQL_NO_SALES = `
+  SELECT o.order_id, o.order_code, o.order_date, o.status,
+    o.customer_branch_id,
+    b.name AS branch_name,
+    s.shipment_id, s.shipment_code,
+    r.name AS route_name,
+    CONCAT(ed.firstname, ' ', ed.lastname) AS driver_name,
+    NULL AS sales_name
+  FROM orders o
+  JOIN branch b ON o.customer_branch_id = b.branch_id
+  LEFT JOIN shipments s ON o.shipment_id = s.shipment_id
+  LEFT JOIN routes r ON s.route_id = r.route_id
+  LEFT JOIN employees ed ON s.driver_emp_id = ed.emp_id
+  WHERE o.order_id = ?`;
+
 // GET /api/v2/orders/:id - Order detail with line items (order_items)
 app.get('/api/v2/orders/:id', async (req, res) => {
   const orderId = parseInt(req.params.id, 10);
   if (isNaN(orderId)) return res.status(400).json({ error: 'Invalid order ID' });
   try {
     const conn = await getV2Conn();
-    const [headerRows] = await conn.execute(
-      `SELECT o.order_id, o.order_code, o.order_date, o.status,
-        o.customer_branch_id,
-        b.name AS branch_name,
-        s.shipment_id, s.shipment_code,
-        r.name AS route_name,
-        CONCAT(ed.firstname, ' ', ed.lastname) AS driver_name,
-        NULL AS sales_name
-       FROM orders o
-       JOIN branch b ON o.customer_branch_id = b.branch_id
-       LEFT JOIN shipments s ON o.shipment_id = s.shipment_id
-       LEFT JOIN routes r ON s.route_id = r.route_id
-       LEFT JOIN employees ed ON s.driver_emp_id = ed.emp_id
-       WHERE o.order_id = ?`,
-      [orderId]
-    );
+    let headerRows;
+    try {
+      [headerRows] = await conn.execute(V2_ORDER_BY_ID_SQL, [orderId]);
+    } catch (e) {
+      if (e.message && e.message.includes('sales_emp_id')) {
+        [headerRows] = await conn.execute(V2_ORDER_BY_ID_SQL_NO_SALES, [orderId]);
+      } else throw e;
+    }
     if (!headerRows?.length) {
       await conn.release();
       return res.status(404).json({ error: 'Order not found' });
@@ -1355,25 +1401,47 @@ app.get('/api/v2/orders/:id', async (req, res) => {
   }
 });
 
+const V2_ORDERS_EXPORT_SQL = `
+  SELECT o.order_id, o.order_code, o.order_date, o.status,
+    b.name AS branch_name,
+    s.shipment_code,
+    r.name AS route_name,
+    CONCAT(ed.firstname, ' ', ed.lastname) AS driver_name,
+    CONCAT(es.firstname, ' ', es.lastname) AS sales_name
+  FROM orders o
+  JOIN branch b ON o.customer_branch_id = b.branch_id
+  LEFT JOIN shipments s ON o.shipment_id = s.shipment_id
+  LEFT JOIN routes r ON s.route_id = r.route_id
+  LEFT JOIN employees ed ON s.driver_emp_id = ed.emp_id
+  LEFT JOIN employees es ON s.sales_emp_id = es.emp_id
+  ORDER BY o.order_date DESC, o.order_id DESC`;
+const V2_ORDERS_EXPORT_SQL_NO_SALES = `
+  SELECT o.order_id, o.order_code, o.order_date, o.status,
+    b.name AS branch_name,
+    s.shipment_code,
+    r.name AS route_name,
+    CONCAT(ed.firstname, ' ', ed.lastname) AS driver_name,
+    NULL AS sales_name
+  FROM orders o
+  JOIN branch b ON o.customer_branch_id = b.branch_id
+  LEFT JOIN shipments s ON o.shipment_id = s.shipment_id
+  LEFT JOIN routes r ON s.route_id = r.route_id
+  LEFT JOIN employees ed ON s.driver_emp_id = ed.emp_id
+  ORDER BY o.order_date DESC, o.order_id DESC`;
+
 // GET /api/v2/orders/export?format=xlsx - Export v2 orders
 app.get('/api/v2/orders/export', async (req, res) => {
   if (req.query.format !== 'xlsx') return res.status(400).json({ error: 'Use ?format=xlsx' });
   try {
     const conn = await getV2Conn();
-    const [rows] = await conn.execute(
-      `SELECT o.order_id, o.order_code, o.order_date, o.status,
-        b.name AS branch_name,
-        s.shipment_code,
-        r.name AS route_name,
-        CONCAT(ed.firstname, ' ', ed.lastname) AS driver_name,
-        NULL AS sales_name
-       FROM orders o
-       JOIN branch b ON o.customer_branch_id = b.branch_id
-       LEFT JOIN shipments s ON o.shipment_id = s.shipment_id
-       LEFT JOIN routes r ON s.route_id = r.route_id
-       LEFT JOIN employees ed ON s.driver_emp_id = ed.emp_id
-       ORDER BY o.order_date DESC, o.order_id DESC`
-    );
+    let rows;
+    try {
+      [rows] = await conn.execute(V2_ORDERS_EXPORT_SQL);
+    } catch (e) {
+      if (e.message && e.message.includes('sales_emp_id')) {
+        [rows] = await conn.execute(V2_ORDERS_EXPORT_SQL_NO_SALES);
+      } else throw e;
+    }
     await conn.release();
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet('Orders');

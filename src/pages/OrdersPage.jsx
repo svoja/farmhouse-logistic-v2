@@ -8,12 +8,11 @@ const SORT_COLUMNS = [
   { key: 'order_code', label: 'Order Code' },
   { key: 'order_date', label: 'Order Date' },
   { key: 'status', label: 'Status' },
-  { key: 'driver_name', label: 'Driver' },
-  { key: 'sales_name', label: 'Sales' },
   { key: 'branch_name', label: 'Branch' },
   { key: 'route_name', label: 'Route' },
   { key: 'shipment_code', label: 'Shipment' },
   { key: 'driver_name', label: 'Driver' },
+  { key: 'sales_name', label: 'Sales' },
 ]
 
 const STATUS_FILTERS = [
@@ -350,11 +349,14 @@ export default function OrdersPage() {
                     }}
                   >
                     <td className="px-4 py-3">{r.order_id ?? '—'}</td>
+                    <td className="px-4 py-3">{r.order_code ?? '—'}</td>
                     <td className="px-4 py-3">{formatDate(r.order_date)}</td>
                     <td className="px-4 py-3">{formatStatus(r.status)}</td>
                     <td className="px-4 py-3">{r.branch_name ?? '—'}</td>
                     <td className="px-4 py-3">{r.route_name ?? '—'}</td>
+                    <td className="px-4 py-3">{r.shipment_code ?? '—'}</td>
                     <td className="px-4 py-3">{r.driver_name ?? '—'}</td>
+                    <td className="px-4 py-3">{r.sales_name ?? '—'}</td>
                   </tr>
                 ))
               )}
