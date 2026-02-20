@@ -2224,16 +2224,17 @@ app.get('/route-radar.js', (_req, res) => {
   res.sendFile(path.join(legacyDir, 'route-radar.js'));
 });
 
-// Serve React build in production
+// Serve React build in production (regex catch-all avoids path-to-regexp v7 '*' issues)
 if (process.env.NODE_ENV === 'production') {
   app.use(express.static(path.join(__dirname, '../dist')));
-  app.get('*', (_req, res) => {
+  app.get(/.*/, (_req, res) => {
     res.sendFile(path.join(__dirname, '../dist/index.html'));
   });
 }
 
-app.listen(PORT, () => {
-  console.log(`API server running at http://localhost:${PORT}`);
+const HOST = process.env.HOST || '0.0.0.0';
+app.listen(PORT, HOST, () => {
+  console.log(`API server running at http://${HOST}:${PORT}`);
   console.log(`DB: ${dbConfig.host}:${dbConfig.port}/${dbConfig.database}`);
   console.log('Ensure OpenClaw gateway is running for AI (port 18789).');
 });
