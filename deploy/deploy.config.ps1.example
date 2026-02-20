@@ -1,0 +1,6 @@
+# Copy to deploy.config.ps1 and set your values.
+# Then run: .\deploy\deploy.ps1
+
+$env:DEPLOY_HOST = "139.59.241.102"
+$env:DEPLOY_USER = "root"
+# $env:DEPLOY_PATH = "/opt/logistic_OS_v2"   # optional; default (v1 is at /opt/logistic_OS)

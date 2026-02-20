@@ -27,7 +27,22 @@ This file will be committed and pushed so the server (or your teacher) can impor
 
 ---
 
-## 3. Git: push to server
+## 3. Deploy to server
+
+### Option A: PowerShell script (SSH/SCP, no Git on server)
+
+From the project root (e.g. `D:\logistic_OS` or this repo):
+
+```powershell
+# Set your droplet IP and user (optional: copy deploy/deploy.config.ps1.example to deploy.config.ps1)
+$env:DEPLOY_HOST = "YOUR_DROPLET_IP"
+$env:DEPLOY_USER = "root"
+.\deploy\deploy.ps1
+```
+
+The script will: build the React app (`npm run build`), create remote dirs, copy `server/`, `dist/`, `database/`, `package.json`, `.env` (if present), and run `deploy/server-setup.sh` on the server (installs production deps). Then follow the “Next steps” printed at the end (create `.env`, import DB, start with `node server/index.js` or pm2). Optional config file: copy `deploy/deploy.config.ps1.example` to `deploy/deploy.config.ps1` and set `DEPLOY_HOST` / `DEPLOY_USER` / `DEPLOY_PATH`.
+
+### Option B: Git push to server
 
 From `D:\logistic_OS` (your project root):
 
