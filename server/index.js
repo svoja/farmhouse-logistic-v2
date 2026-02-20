@@ -1259,13 +1259,12 @@ app.get('/api/v2/orders', async (_req, res) => {
         s.shipment_id, s.shipment_code,
         r.name AS route_name,
         CONCAT(ed.firstname, ' ', ed.lastname) AS driver_name,
-        CONCAT(es.firstname, ' ', es.lastname) AS sales_name
+        NULL AS sales_name
        FROM orders o
        JOIN branch b ON o.customer_branch_id = b.branch_id
        LEFT JOIN shipments s ON o.shipment_id = s.shipment_id
        LEFT JOIN routes r ON s.route_id = r.route_id
        LEFT JOIN employees ed ON s.driver_emp_id = ed.emp_id
-       LEFT JOIN employees es ON s.sales_emp_id = es.emp_id
        ORDER BY o.order_date DESC, o.order_id DESC`
     );
     await conn.release();
@@ -1301,13 +1300,12 @@ app.get('/api/v2/orders/:id', async (req, res) => {
         s.shipment_id, s.shipment_code,
         r.name AS route_name,
         CONCAT(ed.firstname, ' ', ed.lastname) AS driver_name,
-        CONCAT(es.firstname, ' ', es.lastname) AS sales_name
+        NULL AS sales_name
        FROM orders o
        JOIN branch b ON o.customer_branch_id = b.branch_id
        LEFT JOIN shipments s ON o.shipment_id = s.shipment_id
        LEFT JOIN routes r ON s.route_id = r.route_id
        LEFT JOIN employees ed ON s.driver_emp_id = ed.emp_id
-       LEFT JOIN employees es ON s.sales_emp_id = es.emp_id
        WHERE o.order_id = ?`,
       [orderId]
     );
@@ -1368,13 +1366,12 @@ app.get('/api/v2/orders/export', async (req, res) => {
         s.shipment_code,
         r.name AS route_name,
         CONCAT(ed.firstname, ' ', ed.lastname) AS driver_name,
-        CONCAT(es.firstname, ' ', es.lastname) AS sales_name
+        NULL AS sales_name
        FROM orders o
        JOIN branch b ON o.customer_branch_id = b.branch_id
        LEFT JOIN shipments s ON o.shipment_id = s.shipment_id
        LEFT JOIN routes r ON s.route_id = r.route_id
        LEFT JOIN employees ed ON s.driver_emp_id = ed.emp_id
-       LEFT JOIN employees es ON s.sales_emp_id = es.emp_id
        ORDER BY o.order_date DESC, o.order_id DESC`
     );
     await conn.release();
